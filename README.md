@@ -2,7 +2,7 @@
 
 Current Version: alpha-1
 
-This repository contains a demo of the OpenTransact Javascript SDK and documentation for using the SDK.  The release is currently in an alpha state and the APIs may change.  We will make every effort to communicate changes to anyone using the SDK and/or issue a new version when breaking changes occur.
+This repository contains a demo of the OpenTransact Javascript SDK and documentation for using the SDK to connect web based applications with the OpenTransact API.  You can find more details on the OpenTransact API on the [documentation site](https://docs.opentransact.com). The release is currently in an alpha state and the APIs may change.  We will make every effort to communicate changes to anyone using the SDK and/or issue a new version when breaking changes occur.
 
 While support for all objects and interactions in our API are planned, the javascript SDK is currently limited to specific use cases like 3DS2 verification.
 
@@ -90,7 +90,7 @@ Example Form:
 Example extraction:
 
 ```javascript
-let form = document.getElementById("credit-card-form")
+let form = document.getElementById("credit-card-form");
 let account = OpenTransact.extractAccount(form);
 ```
 
