@@ -90,7 +90,8 @@ Example Form:
 Example extraction:
 
 ```javascript
-let account = OpenTransact.extractAddress(form);
+let form = document.getElementById("credit-card-form")
+let account = OpenTransact.extractAccount(form);
 ```
 
 
