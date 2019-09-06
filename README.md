@@ -129,3 +129,5 @@ if (account.status === 'new' && account.metadata.threeDS2 && account.metadata.th
 Calling this function will load the appropriate 3DS2 flow for the configured gateway, and update the account with the appropriate info before triggering the complete callback if successful.  You can resume checking to see if the account has moved to 'active' status in this callback.
 
 If 3DS2 verification fails, the error callback will be triggered, and you can inform the user of the failure.
+
+See the [3DS2 Guide](./3DS2_Guide.md) for more info.
