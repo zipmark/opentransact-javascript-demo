@@ -82,8 +82,8 @@
                         <legend>Billing Address</legend>
 
                         <div class="form-group">
-                            <input type="hidden" name="address-profile-id" id="address-profile-id"
-                                data-opentransact-address="profile-id">
+                            <input type="hidden" name="address-owner-id" id="address-owner-id"
+                                data-opentransact-address="ownerId">
                             <div>
                                 <label for="address-street">Street</label>
                                 <input type="text" name="address-street" data-opentransact-address="street1">
@@ -369,12 +369,12 @@
                     <fieldset>
                         <legend>Account Information</legend>
                         <input type="hidden" name="account-account-type" id="account-account-type"
-                            data-opentransact-account="account-type" value="credit-cards">
+                            data-opentransact-account="accountType" value="credit-cards">
                         <div class="form-group">
-                            <input type="hidden" name="account-profile-id" id="account-profile-id"
-                                data-opentransact-account="profile-id">
+                            <input type="hidden" name="account-owner-id" id="account-owner-id"
+                                data-opentransact-account="ownerId">
                             <input type="hidden" name="account-billing-address-id" id="account-billing-address-id"
-                                data-opentransact-account="billing-address-id">
+                                data-opentransact-account="billingAddressId">
                             <div>
                                 <label for="account-nickname">Account Nickname</label>
 
@@ -383,13 +383,12 @@
                             <div>
                                 <label for="account-cardholder">Cardholder Name</label>
 
-                                <input type="text" name="account-cardholder"
-                                    data-opentransact-account="cardholder-name">
+                                <input type="text" name="account-cardholder" data-opentransact-account="cardholderName">
                             </div>
                             <div>
                                 <label for="creditCard">Card Number</label>
                                 <input type="text" name="account-card-number" id="account-card-number"
-                                    data-opentransact-account="card-number">
+                                    data-opentransact-account="cardNumber">
                             </div>
 
                             <div>
@@ -400,7 +399,7 @@
                             <div>
                                 <label for="account-expiration-date">Exp. (MM/YYYY)</label>
                                 <select class="form-control" style="display: inline-block; width: 55px;"
-                                    name="account-expiration-month" data-opentransact-account="expiration-month">
+                                    name="account-expiration-month" data-opentransact-account="expirationMonth">
                                     <option>01</option>
                                     <option>02</option>
                                     <option>03</option>
@@ -416,7 +415,7 @@
                                 </select>
                                 <span> / </span>
                                 <select class="form-control" style="display: inline-block; width: 80px;"
-                                    name="account-expiration-year" data-opentransact-account="expiration-year">
+                                    name="account-expiration-year" data-opentransact-account="expirationYear">
                                     <option>2019</option>
                                     <option>2020</option>
                                     <option>2021</option>
@@ -452,6 +451,8 @@
                 </div>
         </form>
 
+        <div id=""></div>
+
     </div>
 
     <!-- Import Bootstrap Requirements -->
@@ -466,7 +467,7 @@
         crossorigin="anonymous"></script>
 
     <!-- Import OpenTransact Javascript SDK -->
-    <script src="https://js.opentransact.com/alpha/core.js"> </script>
+    <script src="https://js.opentransact.com/alpha-1/core.js"> </script>
 
     <script>
         function enableForm(formName) {
@@ -500,20 +501,40 @@
                 console.log("aborting, retried 10 times")
                 return;
             }
-
+            // make Ajax call here, inside the callback call:
             console.log("polling account")
             const accountResponse = await window.client.get('accounts', accountId)
             const account = accountResponse.resource;
 
+            console.log(account);
+
             switch (account.status) {
                 case 'new': {
-                    debugger;
                     threeDS2Config = account.metadata.threeDS2;
-                    if (threeDS2Config && threeDS2Config.required) {
-                        OpenTransact.loadThreeDS2(threeDS2Config, {
-                            complete: () => pollAccount(accountId),
-                            error: (err) => console.log(err)
-                        })
+                    // If the account has a threeDS2 requirement, and has not already been processed, then process it
+                    if (threeDS2Config && threeDS2Config.required && !threeDS2Config.response) {
+                        const threeDS2Response = await window.client.triggerThreeDS2(threeDS2Config);
+
+                        // update the account with the ThreeDS2 Response details;
+                        const updateAccountRequest = {
+                            type: "accounts",
+                            id: accountId,
+                            attributes: {
+                                metadata: {
+                                    threeDS2: {
+                                        response: threeDS2Response.threeDSecure
+                                    }
+                                }
+                            }
+                        }
+                        const updateAccountResponse = await window.client.update(updateAccountRequest);
+                        if (updateAccountResponse.success) {
+                            // Restart Polling the Account
+                            pollAccount(accountId);
+                        } else {
+                            // Show an error
+                            console.log("Error Updating Account with ThreeDS2 Info")
+                        }
                     } else {
                         setTimeout(() => pollAccount(accountId, retries + 1), 1000);
                     }
@@ -521,10 +542,14 @@
                 }
 
                 case 'active': {
+                    // Show success
+                    console.log("Account is Active... proceed")
                     break;
                 }
 
                 case 'invalid': {
+                    // Show an error
+                    console.log("Account was marked as invalid.")
                     break;
                 }
             }
@@ -533,8 +558,8 @@
         function configureForm(formName, options) {
             document.getElementById("profile-name").innerText = options.profileName;
             document.getElementById("profile-id").innerText = options.profileId;
-            document.getElementById("address-profile-id").value = options.profileId;
-            document.getElementById("account-profile-id").value = options.profileId;
+            document.getElementById("address-owner-id").value = options.profileId;
+            document.getElementById("account-owner-id").value = options.profileId;
         }
 
         function setProgressMessage(formName, message) {
@@ -565,8 +590,10 @@
             disableForm("add-account-form");
 
             setProgressMessage("add-account-form", "Creating Address ...")
-            var address = OpenTransact.extractAddress(form);
+            var address = OpenTransact.extractCreateAddressRequest(form);
+            console.log(address);
             var addressResponse = await client.create(address);
+            console.log(addressResponse);
             if (!addressResponse.success) {
                 // set error messages on form
                 enableForm("add-account-form");
@@ -578,7 +605,7 @@
 
             setProgressMessage("add-account-form", "Creating Account ...")
 
-            var account = OpenTransact.extractAccount(form);
+            var account = OpenTransact.extractCreateAccountRequest(form);
             var accountResponse = await client.create(account);
             if (!accountResponse.success) {
                 // set error messages on form
@@ -588,10 +615,8 @@
                 setProgressMessage("add-account-form", "Success ...")
             }
 
+            console.log(`Account ID: ${accountResponse.resource.id}`)
             pollAccount(accountResponse.resource.id)
-
-            //  set success message
-
         }
 
         document.getElementById("add-account-form").onsubmit = function (event) {
