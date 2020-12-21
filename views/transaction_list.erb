@@ -1,0 +1,15 @@
+<dl id="transactionsList" data-data-url="<%= transactions_url(@profile) %>" data-type="transactions" hidden id="transactionList" class="sm:divide-y sm:divide-gray-200">
+</dl>
+
+<script id="transactionsTemplate" type="x-tmpl-mustache">
+    {{#data}}
+    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+        <dt class="text-sm font-medium text-gray-500">
+        Transaction Type
+        </dt>
+        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+        <%= @profile.attributes.owner["type"] %>
+        </dd>
+    </div>
+    {{/data}}
+</script>

@@ -1,0 +1,38 @@
+<ul id="accountsList" data-data-url="<%= accounts_url(@profile) %>" data-type="accounts" class="border border-gray-200 rounded-md divide-y divide-gray-200">
+</ul>
+
+<script id="accountsTemplate" type="x-tmpl-mustache">
+    {{#data.0}}
+    {{#data}}
+    <li class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+    <div class="w-0 flex-1 flex items-center">
+        {{#isCreditCard}}
+        <svg class="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+        {{/isCreditCard}}
+
+        {{#isBankAccount}}
+        <svg class="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z"></path></svg>
+        {{/isBankAccount}}
+        <span class="ml-2 flex-1 w-0 truncate">
+        Nickname: {{attributes.nickname}}
+        </span>
+    </div>
+    <div class="ml-4 flex-shrink-0">
+        <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500">
+        Edit
+        </a>
+    </div>
+    </li>
+    {{/data}}
+    {{/data.0}}
+        
+    {{^data.0}}
+    <li class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+        <div class="w-0 flex-1 flex items-center">
+            <span class="text-center ml-2 flex-1 w-0 truncate">
+              No Accounts for this profile yet. Add one.
+            </span>
+        </div>
+    </li>
+    {{/data.0}}
+</script>
