@@ -1,6 +1,6 @@
 # OpenTransact Javascript SDK
 
-This repo contains an example integration that utilizes the OpenTransact Javascript SDK Version: alpha-2
+This repo contains an example integration that utilizes the OpenTransact Javascript SDK Version: alpha-4
 
 ## **WARNINGS**
 
