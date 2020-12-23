@@ -1,4 +1,4 @@
-<ul id="addressesList" data-data-url="<%= addresses_url(@profile) %>" data-type="addresses" class="border border-gray-200 rounded-md divide-y divide-gray-200">
+<ul id="addressesList" data-filters="<%= URI.encode({"application-id":application_id, "owner-type":"profiles", "owner-id":@profile.resource_id}.to_json) %>" data-type="addresses" class="border border-gray-200 rounded-md divide-y divide-gray-200">
 </ul>
 
 <script id="addressesTemplate" type="x-tmpl-mustache">
@@ -8,7 +8,7 @@
         <div class="w-0 flex-1 flex items-center">
             <svg class="flex-shrink-0 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             <span class="ml-2 flex-1 w-0 truncate">
-              {{name}}
+              {{formatted}}
             </span>
         </div>
     </li>

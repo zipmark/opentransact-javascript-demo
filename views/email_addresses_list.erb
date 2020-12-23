@@ -1,4 +1,4 @@
-<ul id="emailAddressesList" data-data-url="<%= email_addresses_url(@profile) %>" data-type="email-addresses" class="border border-gray-200 rounded-md divide-y divide-gray-200">
+<ul id="emailAddressesList" data-filters="<%= URI.encode({"application-id":application_id, "owner-type":"profiles", "owner-id":@profile.resource_id}.to_json) %>" data-type="email-addresses" class="border border-gray-200 rounded-md divide-y divide-gray-200">
 </ul>
 
 <script id="emailAddressesTemplate" type="x-tmpl-mustache">

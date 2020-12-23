@@ -1,4 +1,4 @@
-<dl id="transactionsList" data-data-url="<%= transactions_url(@profile) %>" data-type="transactions" hidden id="transactionList" class="sm:divide-y sm:divide-gray-200">
+<dl id="transactionsList" data-filters="<%= URI.encode({"application-id":application_id, "profile-id":@profile.resource_id}.to_json) %>" data-type="transactions" hidden id="transactionList" class="sm:divide-y sm:divide-gray-200">
 </dl>
 
 <script id="transactionsTemplate" type="x-tmpl-mustache">

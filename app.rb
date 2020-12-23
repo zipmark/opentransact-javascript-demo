@@ -132,37 +132,8 @@ helpers do
         OpenTransact::Client.base_uri
     end
 
-    def accounts_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/accounts?filter[owner-type]=profiles&filter[owner-id]=#{profile.resource_id}"
-    end
-
-    def create_account_url
-        "#{OpenTransact::Client.base_uri}/v1/accounts"
-    end
-
-    def addresses_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/addresses?filter[application-id]=#{OpenTransact::Client.application_id}&filter[owner-type]=profiles&filter[owner-id]=#{profile.resource_id}"
-    end
-
-    def create_address_url
-        "#{OpenTransact::Client.base_uri}/v1/addresses"
-    end
-
-    def phone_numbers_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/phone-numbers?filter[application-id]=#{OpenTransact::Client.application_id}&filter[owner-type]=profiles&filter[owner-id]=#{profile.resource_id}"
-
-    end
-
-    def email_addresses_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/email-addresses?filter[application-id]=#{OpenTransact::Client.application_id}&filter[owner-type]=profiles&filter[owner-id]=#{profile.resource_id}"
-    end
-
-    def recent_activity_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/activities?filter[application-id]=#{OpenTransact::Client.application_id}&filter[profile-id]=#{profile.resource_id}"
-    end
-
-    def transactions_url(profile)
-        "#{OpenTransact::Client.base_uri}/v1/transactions?filter[application-id]=#{OpenTransact::Client.application_id}&filter[profile-id]=#{profile.resource_id}"
+    def application_id
+        OpenTransact::Client.application_id
     end
 end
 
@@ -200,4 +171,6 @@ post '/profiles/:profile_id/client-token' do
 end
 
 post '/transactions' do
+    @transaction = OpenTransact::Transaction.create(params)
+    json @transaction
 end

@@ -45,14 +45,18 @@ async function refreshData(id) {
     }
 
     let type = el.dataset.type;
-    let url = el.dataset.dataUrl;
+    let filters;
+    if (el.dataset.filters) {
+      filters = JSON.parse(unescape(el.dataset.filters));
+    } else {
+      filters = {};
+    }
     let key = camelize(type);
-    let templateElement = await document.getElementById(`${key}Template`);
+    let templateElement = document.getElementById(`${key}Template`);
     let templateContent = templateElement.innerHTML;
-    if (url && templateContent) {
-      let data = await fetchResource(url);
-      let records = data.data.map((details) => initRecord(details));
-      window.store.profile[key] = records;
+    if (templateContent) {
+      let data = await window.client.list(type, { filter: filters });
+      window.store.profile[key] = data.resource;
       window.dispatchEvent(new Event("storeUpdated"));
       let content = Mustache.render(templateContent, {
         data: window.store.profile[key],
@@ -66,18 +70,6 @@ function initRecord(item) {
   let klass = modelForType(item.type);
   let record = new klass(item);
   return record;
-}
-
-async function fetchResource(url) {
-  let clientToken = getClientToken();
-  let resourceResponse = await fetch(url, {
-    headers: {
-      "Content-Type": "application/vnd.api+json",
-      Authorization: `Bearer ${clientToken}`,
-    },
-  });
-  let json = await resourceResponse.json();
-  return json;
 }
 
 function getProfileID() {
@@ -141,7 +133,7 @@ function updateStateSelect(country) {
   let states = iso3166_2().filter((details) => details.parent == country);
   let options = states.map((details) => {
     let params = {
-      alpha2: details.code.slice(-2),
+      alpha2: details.code.split("-").slice(-1)[0],
       name: details.name,
     };
     return Mustache.render(template, params);
@@ -151,7 +143,7 @@ function updateStateSelect(country) {
 }
 
 function updateBillingAddressSelect(addresses) {
-  let template = `<option value="{{id}}">{{name}}</option>`;
+  let template = `<option value="{{id}}">{{formatted}}</option>`;
   let select = document.getElementById("billingAddressSelect");
   let options = addresses.map((address) => Mustache.render(template, address));
   select.innerHTML = options.join("\n");

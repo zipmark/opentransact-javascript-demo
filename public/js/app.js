@@ -74,12 +74,9 @@ function hideModalError(element) {
 function submitForm(id, modalID) {
   let form = document.getElementById(id);
   if (form) {
-    console.log(form);
-    let remoteForm = form.dataset.remoteForm;
+    let type = form.dataset.remoteFormType;
 
-    if (remoteForm) {
-      let options = form.dataset;
-
+    if (type) {
       let json = Array.from(form.querySelectorAll("input, select, textarea"))
         .filter((element) => element.name)
         .reduce((json, element) => {
@@ -88,42 +85,28 @@ function submitForm(id, modalID) {
           return json;
         }, {});
 
-      let clientToken = getClientToken();
-      let klass = modelForType(options.remoteFormType);
+      let klass = modelForType(type);
       let params = klass.createFormToJSON(json);
 
-      let threeDS2Options;
-      if (json.three_d_secure_options) {
-        threeDS2Options = JSON.parse(json.three_d_secure_options);
-        threeDS2Options.session.element = "threeDSecureWorkflowContainer";
-        console.log(threeDS2Options);
-      }
-
-      console.log(threeDS2Options);
+      console.log(params);
 
       let workflowContainer = document.getElementById(
         "threeDSecureWorkflowContainer"
       );
 
-      fetch(options.remoteForm, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/vnd.api+json",
-          Authorization: `Bearer ${clientToken}`,
-        },
-        body: JSON.stringify(params),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.errors) {
+      window.client
+        .create(params)
+        .then((response) => {
+          if (!response.success) {
             // show errors
             showModalErrors(
               modalID,
               "An error ocurred.  Check the console for details."
             );
-          } else if (data.data) {
-            if (options.remoteFormType == "accounts") {
-              window.client.poll("accounts", data.data.id, {
+          } else {
+            console.log(response);
+            if (type == "accounts") {
+              window.client.poll("accounts", response.resource.id, {
                 update: async (updatedAccount, next, complete) => {
                   console.log("Received updated account");
                   console.log(updatedAccount);
@@ -132,7 +115,7 @@ function submitForm(id, modalID) {
                     // hide modal
                     hideElement(modalID);
                     // refresh resource
-                    refreshData(`${camelize(options.remoteFormType)}List`);
+                    refreshData(`${camelize(type)}List`);
                     // refresh activity list
                     refreshData("activitiesList");
 
@@ -147,6 +130,20 @@ function submitForm(id, modalID) {
                     console.log("Triggering 3DS2");
                     form.hidden = true;
                     workflowContainer.hidden = false;
+
+                    console.log(json.three_d_secure_options);
+
+                    let threeDS2Options = JSON.parse(
+                      json.three_d_secure_options
+                    );
+
+                    if (!threeDS2Options.session) {
+                      threeDS2Options.session = {};
+                    }
+                    threeDS2Options.session.element =
+                      "threeDSecureWorkflowContainer";
+
+                    console.log(threeDS2Options);
                     let result = await window.client.triggerThreeDSecure(
                       updatedAccount,
                       threeDS2Options
@@ -163,12 +160,10 @@ function submitForm(id, modalID) {
               // hide form
               hideElement(modalID);
               // refresh resource
-              refreshData(`${camelize(options.remoteFormType)}List`);
+              refreshData(`${camelize(type)}List`);
               // refresh activity list
               refreshData("activitiesList");
             }
-          } else {
-            throw "Invalid repsonse format";
           }
         })
         .catch((error) => {
@@ -210,116 +205,53 @@ function modelForType(type) {
 }
 
 class Address {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
-  }
-
   static createFormToJSON(formParams) {
     return {
-      data: {
-        type: "addresses",
-        attributes: {
-          street1: formParams.street,
-          street2: formParams.street2,
-          locality: formParams.city,
-          region: formParams.state,
-          country: formParams.country,
-          zipcode: formParams.zip_code,
-        },
-        relationships: {
-          owner: {
-            data: {
-              type: "profiles",
-              id: formParams.profile_id,
-            },
+      type: "addresses",
+      attributes: {
+        street1: formParams.street,
+        street2: formParams.street2,
+        locality: formParams.city,
+        region: formParams.state,
+        country: formParams.country,
+        zipcode: formParams.zip_code,
+      },
+      relationships: {
+        owner: {
+          data: {
+            type: "profiles",
+            id: formParams.profile_id,
           },
         },
       },
     };
   }
-
-  name() {
-    let street = [this.attributes.street1, this.attributes.street2].join();
-    return `${street}, ${this.attributes.locality}, ${this.attributes.region}, ${this.attributes.country}`;
-  }
 }
-
-class Activity {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
-  }
-}
-
 class Account {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
-  }
-
   static createFormToJSON(formParams) {
-    console.log(formParams);
     let metadata = JSON.parse(formParams.metadata);
     return {
-      data: {
-        type: "accounts",
-        attributes: {
-          nickname: formParams.nickname,
-          details: {
-            type: "credit-cards",
-            "card-number": formParams.cardnumber,
-            "cardholder-name": formParams.cardholder_name,
-            "billing-address-id": formParams.billing_address_id,
-            "expiration-date": formParams.expiration_date,
-            cvv: formParams.cvv,
-          },
-          metadata: metadata,
+      type: "accounts",
+      attributes: {
+        nickname: formParams.nickname,
+        details: {
+          type: "credit-cards",
+          "card-number": formParams.cardnumber,
+          "cardholder-name": formParams.cardholder_name,
+          "billing-address-id": formParams.billing_address_id,
+          "expiration-date": formParams.expiration_date,
+          cvv: formParams.cvv,
         },
-        relationships: {
-          owner: {
-            data: {
-              type: "profiles",
-              id: formParams.profile_id,
-            },
+        metadata: metadata,
+      },
+      relationships: {
+        owner: {
+          data: {
+            type: "profiles",
+            id: formParams.profile_id,
           },
         },
       },
     };
-  }
-
-  isCreditCard() {
-    return this.attributes.details.type == "credit-cards";
-  }
-
-  isBankAccount() {
-    return this.attributes.details.type == "bank-accounts";
-  }
-}
-
-class EmailAddress {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
-  }
-}
-
-class PhoneNumber {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
-  }
-}
-
-class Transaction {
-  constructor({ id, attributes, relationships }) {
-    this.id = id;
-    this.attributes = attributes;
-    this.relationships = relationships;
   }
 }

@@ -1,4 +1,4 @@
-<ul id="phoneNumbersList" data-data-url="<%= phone_numbers_url(@profile) %>" data-type="phone-numbers" class="border border-gray-200 rounded-md divide-y divide-gray-200">
+<ul id="phoneNumbersList" data-filters="<%= URI.encode({"application-id":application_id, "owner-type":"profiles", "owner-id":@profile.resource_id}.to_json) %>" data-type="phone-numbers" class="border border-gray-200 rounded-md divide-y divide-gray-200">
 </ul>
 
 <script id="phoneNumbersTemplate" type="x-tmpl-mustache">
