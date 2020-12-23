@@ -43,7 +43,7 @@ module OpenTransact
         end
 
         def as_json
-            attributes.to_h
+            attributes.to_h.merge(id: resource_id)
         end
     end
 
@@ -123,6 +123,14 @@ module OpenTransact
             new(data)
         end
     end
+
+    class Transaction < Resource
+        def self.create(params)
+            response = Client.post("/v1/transactions", body: {data: params}.to_json)
+            data = response.parsed_response["data"]
+            new(data)
+        end
+    end
 end
 
 set :port, ENV["OPENTRANSACT_DEMO_PORT"] || 3000
@@ -171,6 +179,7 @@ post '/profiles/:profile_id/client-token' do
 end
 
 post '/transactions' do
-    @transaction = OpenTransact::Transaction.create(params)
-    json @transaction
+    json = JSON.parse(request.body.read)
+    @transaction = OpenTransact::Transaction.create(json)
+    json @transaction.as_json
 end

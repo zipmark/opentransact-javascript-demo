@@ -1,42 +1,47 @@
 // alert("I work");
 
-["Profile", "Account", "Address", "PhoneNumber", "EmailAddress"].map(
-  (resourceName) => {
-    let addButton = document.getElementById(`add${resourceName}Button`);
+[
+  "Profile",
+  "Account",
+  "Address",
+  "PhoneNumber",
+  "EmailAddress",
+  "Transaction",
+].map((resourceName) => {
+  let addButton = document.getElementById(`add${resourceName}Button`);
 
-    if (addButton) {
-      addButton.addEventListener(
-        "click",
-        () => showElement(`new${resourceName}Modal`),
-        false
-      );
-    }
-
-    let cancelAddButton = document.getElementById(
-      `cancelAdd${resourceName}Button`
+  if (addButton) {
+    addButton.addEventListener(
+      "click",
+      () => showElement(`new${resourceName}Modal`),
+      false
     );
-
-    if (cancelAddButton) {
-      cancelAddButton.addEventListener(
-        "click",
-        () => hideElement(`new${resourceName}Modal`),
-        false
-      );
-    }
-
-    let submitAddFormButton = document.getElementById(
-      `submitAdd${resourceName}FormButton`
-    );
-
-    if (submitAddFormButton) {
-      submitAddFormButton.addEventListener(
-        "click",
-        () => submitForm(`add${resourceName}Form`, `new${resourceName}Modal`),
-        false
-      );
-    }
   }
-);
+
+  let cancelAddButton = document.getElementById(
+    `cancelAdd${resourceName}Button`
+  );
+
+  if (cancelAddButton) {
+    cancelAddButton.addEventListener(
+      "click",
+      () => hideElement(`new${resourceName}Modal`),
+      false
+    );
+  }
+
+  let submitAddFormButton = document.getElementById(
+    `submitAdd${resourceName}FormButton`
+  );
+
+  if (submitAddFormButton) {
+    submitAddFormButton.addEventListener(
+      "click",
+      () => submitForm(`add${resourceName}Form`, `new${resourceName}Modal`),
+      false
+    );
+  }
+});
 
 function showElement(id) {
   let modal = document.getElementById(id);
@@ -91,85 +96,205 @@ function submitForm(id, modalID) {
       console.log(params);
 
       let workflowContainer = document.getElementById(
-        "threeDSecureWorkflowContainer"
+        `${type}ThreeDSecureWorkflowContainer`
       );
 
-      window.client
-        .create(params)
-        .then((response) => {
-          if (!response.success) {
-            // show errors
+      if (workflowContainer) {
+        workflowContainer.addEventListener(
+          "opentransact:threeDSecure:challengeStart",
+          function handleChallengeStart() {
+            form.hidden = true;
+            workflowContainer.hidden = false;
+            workflowContainer.removeEventListener(
+              "opentransact:threeDSecure:challengeStart",
+              handleChallengeStart,
+              false
+            );
+          }
+        );
+
+        workflowContainer.addEventListener(
+          "opentransact:threeDSecure:challengeTimeout",
+          function handleChallengeTimeout() {
+            workflowContainer.hidden = true;
+            form.hidden = false;
+            workflowContainer.removeEventListener(
+              "opentransact:threeDSecure:challengeTimeout",
+              handleChallengeTimeout,
+              false
+            );
+          }
+        );
+
+        workflowContainer.addEventListener(
+          "opentransact:threeDSecure:challengeSubmitted",
+          function handleChallengeSubmitted() {
+            workflowContainer.hidden = true;
+            form.hidden = false;
+            workflowContainer.removeEventListener(
+              "opentransact:threeDSecure:challengeSubmitted",
+              handleChallengeSubmitted,
+              false
+            );
+          }
+        );
+      }
+
+      if (type == "transactions") {
+        fetch(`/transactions`, {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          body: JSON.stringify(params),
+        })
+          .then((result) => {
+            if (!result.ok) throw result;
+            return result.json();
+          })
+          .then((data) => {
+            console.log(data);
+            let threeDScomplete = false;
+            window.client.poll("transactions", data.id, {
+              update: async (updatedTransaction, next, complete) => {
+                console.log("Received updated transaction");
+                console.log(updatedTransaction);
+
+                if (updatedTransaction.status == "processed") {
+                  // hide modal
+                  hideElement(modalID);
+                  // refresh resource
+                  refreshData(`${camelize(type)}List`);
+                  // refresh activity list
+                  refreshData("activitiesList");
+
+                  complete();
+                } else if (updatedTransaction.status == "processing_failed") {
+                  complete();
+                  console.log("Processing Failed");
+                } else if (
+                  updatedTransaction.metadata.threeDSecure &&
+                  updatedTransaction.metadata.threeDSecure.required &&
+                  !threeDScomplete
+                ) {
+                  console.log("Triggering 3DS2");
+
+                  let threeDS2Options = JSON.parse(json.three_d_secure_options);
+
+                  if (!threeDS2Options.session) {
+                    threeDS2Options.session = {};
+                  }
+                  threeDS2Options.session.element = `${type}ThreeDSecureWorkflowContainer`;
+                  threeDS2Options.session["challenge-window-size"] = "medium";
+
+                  console.log(threeDS2Options);
+                  let result = await window.client.triggerThreeDSecure(
+                    updatedTransaction,
+                    threeDS2Options
+                  );
+                  threeDScomplete = true;
+                  next(0);
+                } else {
+                  next();
+                }
+              },
+              error: (error) => console.log(error),
+              timeout: () => {
+                console.log("Transaction polling timed out.");
+
+                // Transaction always times out for now, so treat it like success.
+                // hide modal
+                hideElement(modalID);
+                // refresh resource
+                refreshData(`${camelize(type)}List`);
+                // refresh activity list
+                refreshData("activitiesList");
+              },
+            });
+          })
+          .catch((error) => {
+            console.log(error);
             showModalErrors(
               modalID,
               "An error ocurred.  Check the console for details."
             );
-          } else {
-            console.log(response);
-            if (type == "accounts") {
-              window.client.poll("accounts", response.resource.id, {
-                update: async (updatedAccount, next, complete) => {
-                  console.log("Received updated account");
-                  console.log(updatedAccount);
-
-                  if (updatedAccount.status == "active") {
-                    // hide modal
-                    hideElement(modalID);
-                    // refresh resource
-                    refreshData(`${camelize(type)}List`);
-                    // refresh activity list
-                    refreshData("activitiesList");
-
-                    complete();
-                  } else if (updatedAccount.status == "invalid") {
-                    complete();
-                    console.log("Authentication Failed");
-                  } else if (
-                    updatedAccount.metadata.threeDSecure &&
-                    updatedAccount.metadata.threeDSecure.required
-                  ) {
-                    console.log("Triggering 3DS2");
-                    form.hidden = true;
-                    workflowContainer.hidden = false;
-
-                    console.log(json.three_d_secure_options);
-
-                    let threeDS2Options = JSON.parse(
-                      json.three_d_secure_options
-                    );
-
-                    if (!threeDS2Options.session) {
-                      threeDS2Options.session = {};
-                    }
-                    threeDS2Options.session.element =
-                      "threeDSecureWorkflowContainer";
-
-                    console.log(threeDS2Options);
-                    let result = await window.client.triggerThreeDSecure(
-                      updatedAccount,
-                      threeDS2Options
-                    );
-                    next(0);
-                  } else {
-                    next();
-                  }
-                },
-                error: (error) => console.log(error),
-                timeout: () => console.log("Account polling timed out."),
-              });
+          });
+      } else {
+        window.client
+          .create(params)
+          .then((response) => {
+            if (!response.success) {
+              // show errors
+              showModalErrors(
+                modalID,
+                "An error ocurred.  Check the console for details."
+              );
             } else {
-              // hide form
-              hideElement(modalID);
-              // refresh resource
-              refreshData(`${camelize(type)}List`);
-              // refresh activity list
-              refreshData("activitiesList");
+              console.log(response);
+              if (type == "accounts") {
+                window.client.poll("accounts", response.resource.id, {
+                  update: async (updatedAccount, next, complete) => {
+                    console.log("Received updated account");
+                    console.log(updatedAccount);
+
+                    if (updatedAccount.status == "active") {
+                      // hide modal
+                      hideElement(modalID);
+                      // refresh resource
+                      refreshData(`${camelize(type)}List`);
+                      // refresh activity list
+                      refreshData("activitiesList");
+
+                      complete();
+                    } else if (updatedAccount.status == "invalid") {
+                      complete();
+                      console.log("Authentication Failed");
+                    } else if (
+                      updatedAccount.metadata.threeDSecure &&
+                      updatedAccount.metadata.threeDSecure.required
+                    ) {
+                      console.log("Triggering 3DS2");
+
+                      let threeDS2Options = JSON.parse(
+                        json.three_d_secure_options
+                      );
+
+                      if (!threeDS2Options.session) {
+                        threeDS2Options.session = {};
+                      }
+                      threeDS2Options.session.element = `${type}ThreeDSecureWorkflowContainer`;
+                      threeDS2Options.session["challenge-window-size"] =
+                        "medium";
+
+                      console.log(threeDS2Options);
+                      let result = await window.client.triggerThreeDSecure(
+                        updatedAccount,
+                        threeDS2Options
+                      );
+                      next(0);
+                    } else {
+                      next();
+                    }
+                  },
+                  error: (error) => console.log(error),
+                  timeout: () => console.log("Account polling timed out."),
+                });
+              } else {
+                // hide form
+                hideElement(modalID);
+                // refresh resource
+                refreshData(`${camelize(type)}List`);
+                // refresh activity list
+                refreshData("activitiesList");
+              }
             }
-          }
-        })
-        .catch((error) => {
-          console.log("Request failed:");
-          console.log(error);
-        });
+          })
+          .catch((error) => {
+            console.log("Request failed:");
+            console.log(error);
+          });
+      }
     } else {
       form.submit();
     }
@@ -249,6 +374,41 @@ class Account {
           data: {
             type: "profiles",
             id: formParams.profile_id,
+          },
+        },
+      },
+    };
+  }
+}
+
+class Transaction {
+  static createFormToJSON(formParams) {
+    console.log(formParams);
+    let amount = Math.trunc(
+      Number(formParams.amount.replace(/[^0-9\.-]+/g, "")) * 100
+    );
+    let metadata = JSON.parse(formParams.metadata);
+    return {
+      type: "transactions",
+      attributes: {
+        "transaction-type": "debit",
+        amount: amount,
+        precision: 2,
+        currency: formParams.currency,
+        memo: formParams.memo,
+        metadata: metadata,
+      },
+      relationships: {
+        profile: {
+          data: {
+            type: "profiles",
+            id: formParams.profile_id,
+          },
+        },
+        account: {
+          data: {
+            type: "accounts",
+            id: formParams.account_id,
           },
         },
       },
