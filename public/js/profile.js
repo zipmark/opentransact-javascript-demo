@@ -19,6 +19,7 @@ window.addEventListener("DOMContentLoaded", async (event) => {
   refreshData("transactionsList");
 
   setupAddressForm();
+  setupEditAccountForm();
   setupInfoPanels();
 });
 
@@ -28,6 +29,51 @@ async function configureProfile() {
   let clientToken = await refreshClientToken(profileId);
   setClientToken(clientToken);
   window.client = OpenTransact.init(clientToken, apiEndpoint);
+}
+
+function setupEditAccountForm() {
+  let cancelEditButton = document.getElementById(`cancelEditAccountButton`);
+
+  if (cancelEditButton) {
+    cancelEditButton.addEventListener(
+      "click",
+      () => {
+        hideElement(`editAccountModal`);
+        clearForm("editAccountForm");
+      },
+      false
+    );
+  }
+
+  let submitEditAccountFormButton = document.getElementById(
+    `submitEditAccountFormButton`
+  );
+
+  if (submitEditAccountFormButton) {
+    submitEditAccountFormButton.addEventListener(
+      "click",
+      () => submitForm(`editAccountForm`, `editAccountModal`),
+      false
+    );
+  }
+
+  window.addEventListener("storeUpdated", function (event) {
+    let template = `<option value="{{id}}">{{formatted}}</option>`;
+    let form = document.getElementById("editAccountForm");
+    let select = form.elements["billing_address_id"];
+    let options = window.store.profile.addresses.map((address) =>
+      Mustache.render(template, address)
+    );
+    select.innerHTML = options.join("\n");
+  });
+}
+
+function clearForm(id) {
+  console.log("clear the form");
+  let form = document.getElementById(id);
+  if (form) {
+    form.reset();
+  }
 }
 
 function setupAddressForm() {
@@ -99,7 +145,36 @@ async function refreshData(id) {
       });
       el.innerHTML = content;
     }
+
+    if (type == "accounts") {
+      let editAccountButtons = document.querySelectorAll(
+        "[data-action='editAccount']"
+      );
+      editAccountButtons.forEach((el) => {
+        let accountId = el.dataset.accountId;
+        let account = window.store.profile.accounts.find(
+          (account) => account.id == accountId
+        );
+        el.addEventListener(
+          "click",
+          () => {
+            showElement(`editAccountModal`);
+            populateEditAccountForm(account);
+          },
+          false
+        );
+      });
+    }
   }
+}
+
+function populateEditAccountForm(account) {
+  console.log(account);
+  let form = document.getElementById("editAccountForm");
+  form.elements["id"].value = account.id;
+  form.elements["nickname"].value = account.nickname;
+  form.elements["cardholder_name"].value = account.details.cardholderName;
+  form.elements["billing_address_id"].value = account.details.billingAddress.id;
 }
 
 function initRecord(item) {

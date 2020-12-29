@@ -43,6 +43,8 @@
   }
 });
 
+// Listen for 3DS lifecycle events for debugging purposes;
+
 function showElement(id) {
   let modal = document.getElementById(id);
   if (modal) {
@@ -91,214 +93,326 @@ function submitForm(id, modalID) {
         }, {});
 
       let klass = modelForType(type);
-      let params = klass.createFormToJSON(json);
+      let action = form.dataset.remoteFormAction || "create";
+
+      let params = klass[`${action}FormToJSON`](json);
 
       console.log(params);
+      let threeDS2Options;
 
-      let workflowContainer = document.getElementById(
-        `${type}ThreeDSecureWorkflowContainer`
-      );
+      if (json.three_d_secure_options) {
+        threeDS2Options = JSON.parse(json.three_d_secure_options);
+        let workflowContainerId = `${action}${klass.name}ThreeDSecureWorkflowContainer`;
+        console.log(workflowContainerId);
 
-      if (workflowContainer) {
-        workflowContainer.addEventListener(
-          "opentransact:threeDSecure:challengeStart",
-          function handleChallengeStart() {
-            form.hidden = true;
-            workflowContainer.hidden = false;
-            workflowContainer.removeEventListener(
-              "opentransact:threeDSecure:challengeStart",
-              handleChallengeStart,
-              false
-            );
-          }
-        );
+        if (!threeDS2Options.session) {
+          threeDS2Options.session = {};
+        }
+        threeDS2Options.session.element = workflowContainerId;
+        threeDS2Options.session["challenge-window-size"] = "medium";
 
-        workflowContainer.addEventListener(
-          "opentransact:threeDSecure:challengeTimeout",
-          function handleChallengeTimeout() {
-            workflowContainer.hidden = true;
-            form.hidden = false;
-            workflowContainer.removeEventListener(
-              "opentransact:threeDSecure:challengeTimeout",
-              handleChallengeTimeout,
-              false
-            );
-          }
-        );
+        let workflowContainer = document.getElementById(workflowContainerId);
 
-        workflowContainer.addEventListener(
-          "opentransact:threeDSecure:challengeSubmitted",
-          function handleChallengeSubmitted() {
-            workflowContainer.hidden = true;
-            form.hidden = false;
-            workflowContainer.removeEventListener(
-              "opentransact:threeDSecure:challengeSubmitted",
-              handleChallengeSubmitted,
-              false
-            );
-          }
-        );
+        // Listen for 3DS lifecycle events for debugging purposes;
+        [
+          "start",
+          "preauthComplete",
+          "methodStart",
+          "methodTimeout",
+          "methodSubmitted",
+          "methodComplete",
+          "authError",
+          "authComplete",
+          "challengeStart",
+          "challengeSubmitted",
+          "challengeTimeout",
+          "postauthError",
+          "postauthComplete",
+          "complete",
+        ].map((eventName) => {
+          workflowContainer.addEventListener(
+            `opentransact:threeDSecure:${eventName}`,
+            (event) => {
+              console.log(
+                `Received Event: opentransact:threeDSecure:${eventName}`
+              );
+              console.log(event);
+            },
+            false
+          );
+        });
+
+        if (workflowContainer) {
+          workflowContainer.addEventListener(
+            "opentransact:threeDSecure:challengeStart",
+            function handleChallengeStart() {
+              form.hidden = true;
+              workflowContainer.hidden = false;
+              workflowContainer.removeEventListener(
+                "opentransact:threeDSecure:challengeStart",
+                handleChallengeStart,
+                false
+              );
+            }
+          );
+
+          workflowContainer.addEventListener(
+            "opentransact:threeDSecure:challengeTimeout",
+            function handleChallengeTimeout() {
+              workflowContainer.hidden = true;
+              form.hidden = false;
+              workflowContainer.removeEventListener(
+                "opentransact:threeDSecure:challengeTimeout",
+                handleChallengeTimeout,
+                false
+              );
+            }
+          );
+
+          workflowContainer.addEventListener(
+            "opentransact:threeDSecure:challengeSubmitted",
+            function handleChallengeSubmitted() {
+              workflowContainer.hidden = true;
+              form.hidden = false;
+              workflowContainer.removeEventListener(
+                "opentransact:threeDSecure:challengeSubmitted",
+                handleChallengeSubmitted,
+                false
+              );
+            }
+          );
+        }
       }
 
       if (type == "transactions") {
-        fetch(`/transactions`, {
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          method: "POST",
-          body: JSON.stringify(params),
-        })
-          .then((result) => {
-            if (!result.ok) throw result;
-            return result.json();
-          })
-          .then((data) => {
-            console.log(data);
-            let threeDScomplete = false;
-            window.client.poll("transactions", data.id, {
-              update: async (updatedTransaction, next, complete) => {
-                console.log("Received updated transaction");
-                console.log(updatedTransaction);
+        createTransaction(params, modalID, threeDS2Options);
+      } else {
+        if (action == "create") {
+          createResource(params, modalID, threeDS2Options);
+        } else if (action == "update") {
+          updateResource(params, modalID, threeDS2Options);
+        }
+      }
+    } else {
+      form.submit();
+    }
+  }
+  clearForm(id);
+}
 
-                if (updatedTransaction.status == "processed") {
-                  // hide modal
-                  hideElement(modalID);
-                  // refresh resource
-                  refreshData(`${camelize(type)}List`);
-                  // refresh activity list
-                  refreshData("activitiesList");
+function createTransaction(params, modalID, threeDS2Options) {
+  let type = "transactions";
+  fetch(`/transactions`, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+    .then((result) => {
+      if (!result.ok) throw result;
+      return result.json();
+    })
+    .then((data) => {
+      console.log(data);
+      let threeDScomplete = false;
+      window.client.poll("transactions", data.id, {
+        update: async (updatedTransaction, next, complete) => {
+          console.log("Received updated transaction");
+          console.log(updatedTransaction);
 
-                  complete();
-                } else if (updatedTransaction.status == "processing_failed") {
-                  complete();
-                  console.log("Processing Failed");
-                } else if (
-                  updatedTransaction.metadata.threeDSecure &&
-                  updatedTransaction.metadata.threeDSecure.required &&
-                  !threeDScomplete
-                ) {
-                  console.log("Triggering 3DS2");
+          if (updatedTransaction.status == "processed") {
+            // hide modal
+            hideElement(modalID);
+            // refresh resource
+            refreshData(`${camelize(type)}List`);
+            // refresh activity list
+            refreshData("activitiesList");
 
-                  let threeDS2Options = JSON.parse(json.three_d_secure_options);
+            complete();
+          } else if (updatedTransaction.status == "processing_failed") {
+            complete();
+            console.log("Processing Failed");
+          } else if (
+            updatedTransaction.metadata.threeDSecure &&
+            updatedTransaction.metadata.threeDSecure.required &&
+            !threeDScomplete
+          ) {
+            console.log("Triggering 3DS2");
 
-                  if (!threeDS2Options.session) {
-                    threeDS2Options.session = {};
-                  }
-                  threeDS2Options.session.element = `${type}ThreeDSecureWorkflowContainer`;
-                  threeDS2Options.session["challenge-window-size"] = "medium";
+            console.log(threeDS2Options);
+            await window.client.triggerThreeDSecure(
+              updatedTransaction,
+              threeDS2Options
+            );
+            threeDScomplete = true;
+            next();
+          } else {
+            next();
+          }
+        },
+        error: (error) => console.log(error),
+        timeout: () => {
+          console.log("Transaction polling timed out.");
 
-                  console.log(threeDS2Options);
-                  let result = await window.client.triggerThreeDSecure(
-                    updatedTransaction,
-                    threeDS2Options
-                  );
-                  threeDScomplete = true;
-                  next(0);
-                } else {
-                  next();
-                }
-              },
-              error: (error) => console.log(error),
-              timeout: () => {
-                console.log("Transaction polling timed out.");
+          // Transaction always times out for now, so treat it like success.
+          // hide modal
+          hideElement(modalID);
+          // refresh resource
+          refreshData(`${camelize(type)}List`);
+          // refresh activity list
+          refreshData("activitiesList");
+        },
+      });
+    })
+    .catch((error) => {
+      console.log(error);
+      showModalErrors(
+        modalID,
+        "An error ocurred.  Check the console for details."
+      );
+    });
+}
 
-                // Transaction always times out for now, so treat it like success.
+function createResource(params, modalID, threeDS2Options) {
+  let type = params.type;
+  window.client
+    .create(params)
+    .then((response) => {
+      if (!response.success) {
+        // show errors
+        showModalErrors(
+          modalID,
+          "An error ocurred.  Check the console for details."
+        );
+      } else {
+        console.log(response);
+        if (type == "accounts") {
+          window.client.poll("accounts", response.resource.id, {
+            update: async (updatedAccount, next, complete) => {
+              console.log("Received updated account");
+              console.log(updatedAccount);
+
+              if (updatedAccount.status == "active") {
                 // hide modal
                 hideElement(modalID);
                 // refresh resource
                 refreshData(`${camelize(type)}List`);
                 // refresh activity list
                 refreshData("activitiesList");
-              },
-            });
-          })
-          .catch((error) => {
-            console.log(error);
-            showModalErrors(
-              modalID,
-              "An error ocurred.  Check the console for details."
-            );
-          });
-      } else {
-        window.client
-          .create(params)
-          .then((response) => {
-            if (!response.success) {
-              // show errors
-              showModalErrors(
-                modalID,
-                "An error ocurred.  Check the console for details."
-              );
-            } else {
-              console.log(response);
-              if (type == "accounts") {
-                window.client.poll("accounts", response.resource.id, {
-                  update: async (updatedAccount, next, complete) => {
-                    console.log("Received updated account");
-                    console.log(updatedAccount);
 
-                    if (updatedAccount.status == "active") {
-                      // hide modal
-                      hideElement(modalID);
-                      // refresh resource
-                      refreshData(`${camelize(type)}List`);
-                      // refresh activity list
-                      refreshData("activitiesList");
-
-                      complete();
-                    } else if (updatedAccount.status == "invalid") {
-                      complete();
-                      console.log("Authentication Failed");
-                    } else if (
-                      updatedAccount.metadata.threeDSecure &&
-                      updatedAccount.metadata.threeDSecure.required
-                    ) {
-                      console.log("Triggering 3DS2");
-
-                      let threeDS2Options = JSON.parse(
-                        json.three_d_secure_options
-                      );
-
-                      if (!threeDS2Options.session) {
-                        threeDS2Options.session = {};
-                      }
-                      threeDS2Options.session.element = `${type}ThreeDSecureWorkflowContainer`;
-                      threeDS2Options.session["challenge-window-size"] =
-                        "medium";
-
-                      console.log(threeDS2Options);
-                      let result = await window.client.triggerThreeDSecure(
-                        updatedAccount,
-                        threeDS2Options
-                      );
-                      next(0);
-                    } else {
-                      next();
-                    }
-                  },
-                  error: (error) => console.log(error),
-                  timeout: () => console.log("Account polling timed out."),
-                });
-              } else {
-                // hide form
+                complete();
+              } else if (updatedAccount.status == "invalid") {
+                console.log("Authentication Failed");
+                // hide modal
                 hideElement(modalID);
                 // refresh resource
                 refreshData(`${camelize(type)}List`);
                 // refresh activity list
                 refreshData("activitiesList");
+
+                complete();
+              } else if (
+                updatedAccount.metadata.threeDSecure &&
+                updatedAccount.metadata.threeDSecure.required
+              ) {
+                console.log("Triggering 3DS2");
+
+                console.log(threeDS2Options);
+                await window.client.triggerThreeDSecure(
+                  updatedAccount,
+                  threeDS2Options
+                );
+                next(0);
+              } else {
+                next();
               }
-            }
-          })
-          .catch((error) => {
-            console.log("Request failed:");
-            console.log(error);
+            },
+            error: (error) => console.log(error),
+            timeout: () => console.log("Account polling timed out."),
           });
+        } else {
+          // hide form
+          hideElement(modalID);
+          // refresh resource
+          refreshData(`${camelize(type)}List`);
+          // refresh activity list
+          refreshData("activitiesList");
+        }
       }
-    } else {
-      form.submit();
-    }
-  }
+    })
+    .catch((error) => {
+      console.log("Request failed:");
+      console.log(error);
+    });
+}
+
+function updateResource(params, modalID, threeDS2Options) {
+  let type = params.type;
+  window.client
+    .update(params)
+    .then((response) => {
+      if (!response.success) {
+        // show errors
+        showModalErrors(
+          modalID,
+          "An error ocurred.  Check the console for details."
+        );
+      } else {
+        console.log(response);
+        let threeDScomplete = false;
+        if (type == "accounts") {
+          window.client.poll("accounts", response.resource.id, {
+            update: async (updatedAccount, next, complete) => {
+              console.log("Received updated account");
+              console.log(updatedAccount);
+
+              if (
+                updatedAccount.metadata.threeDSecure &&
+                updatedAccount.metadata.threeDSecure.required &&
+                !threeDScomplete
+              ) {
+                console.log("Triggering 3DS2");
+
+                console.log(threeDS2Options);
+                await window.client.triggerThreeDSecure(
+                  updatedAccount,
+                  threeDS2Options
+                );
+                threeDScomplete = true;
+                next();
+              } else {
+                // Keep polling in case 3DSecure is required on next update.
+                next();
+              }
+            },
+            error: (error) => console.log(error),
+            timeout: () => {
+              // Either 3DSecure is complete or wasnt required.
+              console.log("Account polling timed out.");
+              // hide modal
+              hideElement(modalID);
+              // refresh resource
+              refreshData(`${camelize(type)}List`);
+              // refresh activity list
+              refreshData("activitiesList");
+            },
+          });
+        } else {
+          // hide form
+          hideElement(modalID);
+          // refresh resource
+          refreshData(`${camelize(type)}List`);
+          // refresh activity list
+          refreshData("activitiesList");
+        }
+      }
+    })
+    .catch((error) => {
+      console.log("Request failed:");
+      console.log(error);
+    });
 }
 
 function camelize(str) {
@@ -376,6 +490,24 @@ class Account {
             id: formParams.profile_id,
           },
         },
+      },
+    };
+  }
+
+  static updateFormToJSON(formParams) {
+    let metadata = JSON.parse(formParams.metadata);
+    return {
+      type: "accounts",
+      id: formParams.id,
+      attributes: {
+        nickname: formParams.nickname,
+        details: {
+          type: "credit-cards",
+          "cardholder-name": formParams.cardholder_name,
+          "billing-address-id": formParams.billing_address_id,
+          cvv: formParams.cvv,
+        },
+        metadata: metadata,
       },
     };
   }

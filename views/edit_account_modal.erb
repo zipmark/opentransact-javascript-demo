@@ -1,4 +1,4 @@
-<div id="newAccountModal" hidden class="fixed z-10 inset-0 overflow-y-auto">
+<div id="editAccountModal" hidden class="fixed z-10 inset-0 overflow-y-auto">
   <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
     <!--
       Background overlay, show/hide based on modal state.
@@ -35,17 +35,18 @@
           </svg>
         </div>
         <div class="mt-3 text-center sm:mt-5">
-          <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-headline">
-            Add an Account
+          <h3 class="text-lg leading-6 font-medium text-gray-900">
+            Edit Account
           </h3>
           
           <div hidden class="errorContainer"></div>
 
-          <div hidden id="createAccountThreeDSecureWorkflowContainer" style="height:420px;width:420px;border: 2px solid blue;"></div>
+          <div hidden id="updateAccountThreeDSecureWorkflowContainer" style="height:420px;width:420px;border: 2px solid blue;"></div>
 
-          <form id="addAccountForm" data-remote-form-type="accounts" class="space-y-4 divide-y divide-gray-200">
-            <input type="hidden" name="profile_id" value="<%= @profile.resource_id %>">
-            
+          <form id="editAccountForm" data-remote-form-type="accounts" data-remote-form-action="update" class="space-y-4 divide-y divide-gray-200">
+            <input type="hidden" name="profile_id" value="<%= @profile.resource_id %>" />
+            <input type="hidden" name="id" />
+        
             <div class="space-y-4 divide-y divide-gray-200 sm:space-y-3">
                 <div class="space-y-6 sm:space-y-5">
                   <div class="sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start sm:pt-5">
@@ -53,7 +54,7 @@
                       Nickname
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <input type="text" name="nickname" id="nickname" autocomplete="given-name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
+                      <input type="text" name="nickname" autocomplete="given-name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
                     </div>
                   </div>
 
@@ -62,25 +63,7 @@
                       Cardholder Name
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <input type="text" name="cardholder_name" id="cardholder_name" autocomplete="cardholder_name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
-                    </div>
-                  </div>
-
-                  <div class="sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start sm:pt-5">
-                    <label for="cardnumber" class="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
-                      Card Number
-                    </label>
-                    <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <input type="text" name="cardnumber" id="cardnumber" autocomplete="cardnumber" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
-                    </div>
-                  </div>
-
-                  <div class="sm:grid sm:grid-cols-3 sm:gap-4 sm:items-start sm:pt-5">
-                    <label for="expiration_date" class="block text-sm font-medium text-gray-700 sm:mt-px sm:pt-2">
-                      Expiration Date
-                    </label>
-                    <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <input type="text" name="expiration_date" id="expiration_date" autocomplete="expiration_date" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
+                      <input type="text" name="cardholder_name" autocomplete="cardholder_name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
                     </div>
                   </div>
 
@@ -89,7 +72,7 @@
                       CVV
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <input type="text" name="cvv" id="cvv" autocomplete="family-name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
+                      <input type="text" name="cvv" autocomplete="family-name" class="max-w-lg block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:max-w-xs sm:text-sm border-gray-300 rounded-md">
                     </div>
                   </div>
 
@@ -98,7 +81,7 @@
                       Billing Address
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <select id="billingAddressSelect" name="billing_address_id" autocomplete="billing-address" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
+                      <select name="billing_address_id" autocomplete="billing-address" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md">
                       </select>
                     </div>
                   </div>
@@ -108,7 +91,7 @@
                       Metadata
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <textarea id="accountMetadata" name="metadata" rows="4" class="py-3 px-4 block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md">{}</textarea>
+                      <textarea name="metadata" rows="4" class="py-3 px-4 block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md">{}</textarea>
                     </div>
                   </div>
 
@@ -117,7 +100,7 @@
                       3DSecure Options
                     </label>
                     <div class="mt-1 sm:mt-0 sm:col-span-2">
-                      <textarea id="three_d_secure_options" name="three_d_secure_options" rows="4" class="py-3 px-4 block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md">{}</textarea>
+                      <textarea name="three_d_secure_options" rows="4" class="py-3 px-4 block w-full shadow-sm focus:ring-indigo-500 focus:border-indigo-500 border-gray-300 rounded-md">{}</textarea>
                     </div>
                   </div>
 
@@ -127,10 +110,10 @@
         </div>
       </div>
       <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-        <button id="submitAddAccountFormButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
-          Save Account
+        <button id="submitEditAccountFormButton" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm">
+          Update Account
         </button>
-        <button id="cancelAddAccountButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+        <button id="cancelEditAccountButton" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
           Cancel
         </button>
       </div>
